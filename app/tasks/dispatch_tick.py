@@ -9,10 +9,9 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession  # noqa: F401
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # noqa: F401
 
 from app.config import settings
-from app.database import AsyncSessionLocal
 from app.models.delivery_log import DeliveryLog
 from app.models.subscription import Subscription
 from app.models.user import User
@@ -23,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 
 async def _run_dispatch() -> None:
+    engine = create_async_engine(settings.database_url, echo=False)
+    AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
     async with AsyncSessionLocal() as db:
         subscriptions = await _get_active_subscriptions_with_users(db)
         window = settings.dispatch_tick_interval_seconds

@@ -5,7 +5,8 @@ import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from app.database import AsyncSessionLocal
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from app.config import settings
 from app.models.delivery_log import DeliveryLog
 from app.models.news_cache import NewsCache
 from app.models.subscription import Subscription
@@ -17,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 async def _deliver(user_id: str, subscription_id: str) -> None:
+    engine = create_async_engine(settings.database_url, echo=False)
+    AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
     async with AsyncSessionLocal() as db:
         user = await db.get(User, uuid.UUID(user_id))
         sub = await db.get(Subscription, uuid.UUID(subscription_id))

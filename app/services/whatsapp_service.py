@@ -46,23 +46,8 @@ async def send_message(phone_number: str, snippets: list[dict]) -> str:
     payload = {
         "messaging_product": "whatsapp",
         "to": phone_number.lstrip("+"),
-        "type": "template",
-        "template": {
-            "name": "daily_news_digest",
-            "language": {"code": "en_US"},
-            "components": [
-                {
-                    "type": "header",
-                    "parameters": [{"type": "text", "text": date_str}],
-                },
-                {
-                    "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": s["summary"]} for s in snippets
-                    ],
-                },
-            ],
-        },
+        "type": "text",
+        "text": {"body": message},
     }
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(url, json=payload, headers=headers)
