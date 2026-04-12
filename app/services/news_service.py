@@ -4,49 +4,67 @@ import logging
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
+import httpx
 import redis.asyncio as aioredis
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-MOCK_NEWS: list[dict] = [
-    {
-        "topic": "finance",
-        "headline": "Markets rally on Fed rate-hold comments",
-        "summary": "The S&P 500 climbed 1.4% after Fed officials signalled no imminent rate changes, easing recession fears.",
-    },
-    {
-        "topic": "geopolitics",
-        "headline": "Peace summit talks resume in Vienna",
-        "summary": "Delegates from 14 nations gathered for a third round of negotiations, with mediators cautiously optimistic.",
-    },
-    {
-        "topic": "politics",
-        "headline": "Senate passes landmark infrastructure amendment",
-        "summary": "A bipartisan bill passed 67-33, allocating $120 billion for roads, bridges, and rural broadband.",
-    },
-    {
-        "topic": "sports",
-        "headline": "City FC secures Champions League final berth",
-        "summary": "A stoppage-time winner sent City FC through on aggregate, setting up a final against rivals United.",
-    },
-    {
-        "topic": "lifestyle",
-        "headline": "Mediterranean diet linked to longer life in 20-year study",
-        "summary": "Researchers found a 25% reduction in all-cause mortality among consistent adherents of the diet.",
-    },
-]
+TOPICS = ["finance", "geopolitics", "politics", "sports", "lifestyle"]
+
+TOPIC_PROMPTS = {
+    "finance": "What is the single most important finance or markets news story today? Reply with exactly two lines: first line is the headline, second line is a one-sentence summary.",
+    "geopolitics": "What is the single most important geopolitics or international relations news story today? Reply with exactly two lines: first line is the headline, second line is a one-sentence summary.",
+    "politics": "What is the single most important politics or government news story today? Reply with exactly two lines: first line is the headline, second line is a one-sentence summary.",
+    "sports": "What is the single most important sports news story today? Reply with exactly two lines: first line is the headline, second line is a one-sentence summary.",
+    "lifestyle": "What is the single most important lifestyle, health, or culture news story today? Reply with exactly two lines: first line is the headline, second line is a one-sentence summary.",
+}
 
 
 def _redis_key(for_date: date) -> str:
     return f"news:{for_date.isoformat()}"
 
 
+async def _fetch_topic(client: httpx.AsyncClient, topic: str) -> dict:
+    prompt = TOPIC_PROMPTS[topic]
+    resp = await client.post(
+        "https://api.perplexity.ai/chat/completions",
+        headers={
+            "Authorization": f"Bearer {settings.perplexity_api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": "sonar",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 150,
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    text = resp.json()["choices"][0]["message"]["content"].strip()
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    headline = lines[0] if len(lines) > 0 else f"Top {topic} news"
+    summary = lines[1] if len(lines) > 1 else headline
+    return {"topic": topic, "headline": headline, "summary": summary}
+
+
 async def fetch_news_snippets() -> list[dict]:
-    """Return 5 mock news snippets. Replace this function body to integrate a real API."""
-    await asyncio.sleep(0)  # simulate async I/O
-    return MOCK_NEWS
+    """Fetch one top news snippet per topic from Perplexity in parallel."""
+    async with httpx.AsyncClient() as client:
+        results = await asyncio.gather(
+            *[_fetch_topic(client, topic) for topic in TOPICS],
+            return_exceptions=True,
+        )
+
+    snippets = []
+    for topic, result in zip(TOPICS, results):
+        if isinstance(result, Exception):
+            logger.error("Failed to fetch %s news: %s", topic, result)
+            snippets.append({"topic": topic, "headline": f"No {topic} news available", "summary": ""})
+        else:
+            snippets.append(result)
+    return snippets
 
 
 async def get_news_for_today() -> list[dict]:

@@ -13,6 +13,8 @@ class Config(BaseSettings):
     whatsapp_phone_number_id: str = ""
     whatsapp_verify_token: str = "whatsapp_verify_secret"
 
+    perplexity_api_key: str = ""
+
     dispatch_tick_interval_seconds: int = 300
 
 
