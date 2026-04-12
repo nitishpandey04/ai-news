@@ -8,5 +8,6 @@ dist/
 build/
 .pytest_cache/
 .mypy_cache/
+data.json
 celerybeat-schedule
 celerybeat.pid
