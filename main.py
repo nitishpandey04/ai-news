@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 settings = Settings()
 
 DATA_FILE = Path("data.json")
-DEFAULT_DATA = {"numbers": [], "delivery_time": "10:00"}
+DEFAULT_DATA = {"numbers": []}
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s — %(message)s")
 logger = logging.getLogger(__name__)
@@ -146,10 +146,6 @@ class NumberIn(BaseModel):
     name: str | None = None
 
 
-class TimeIn(BaseModel):
-    delivery_time: str = Field(..., description="HH:MM, 24-hour")
-
-
 def _normalize(phone: str) -> str:
     return phone if phone.startswith("+") else "+" + phone
 
@@ -180,19 +176,6 @@ def remove_number(phone_number: str):
     if len(data["numbers"]) == before:
         raise HTTPException(404, "Phone number not found")
     save_data(data)
-
-
-@app.get("/time")
-def get_time():
-    return {"delivery_time": load_data()["delivery_time"]}
-
-
-@app.put("/time")
-def update_time(body: TimeIn):
-    data = load_data()
-    data["delivery_time"] = body.delivery_time
-    save_data(data)
-    return {"delivery_time": body.delivery_time}
 
 
 @app.post("/send")

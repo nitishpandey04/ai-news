@@ -30,12 +30,8 @@ Single file (`main.py`), no database, no scheduler, no cache.
 | `GET` | `/numbers` | List all stored numbers |
 | `POST` | `/numbers` | Add a number — body: `{"phone_number": "+91...", "name": "..."}` |
 | `DELETE` | `/numbers?phone_number=+91...` | Remove a number |
-| `GET` | `/time` | Get the stored delivery time |
-| `PUT` | `/time` | Update delivery time — body: `{"delivery_time": "10:00"}` |
 | `POST` | `/send` | Fetch news from Perplexity and send to all numbers immediately |
 | `GET` | `/health` | Health check |
-
-The delivery time is just a stored value — there is no scheduler. Hit `POST /send` whenever you want a delivery.
 
 ## Quick test
 
@@ -55,8 +51,7 @@ All state lives in `data.json` in the project root:
 {
   "numbers": [
     {"phone_number": "+919876543210", "name": "Alice"}
-  ],
-  "delivery_time": "10:00"
+  ]
 }
 ```
 
