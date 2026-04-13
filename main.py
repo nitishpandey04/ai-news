@@ -10,6 +10,7 @@ There is no scheduler. Hit POST /send to deliver right now.
 import asyncio
 import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -54,8 +55,10 @@ TOPICS = ["finance", "geopolitics", "politics", "sports", "lifestyle"]
 
 async def _fetch_topic(client: httpx.AsyncClient, topic: str) -> dict:
     prompt = (
-        f"What is the single most important {topic} news story today? "
-        "Reply with exactly two lines: line 1 = headline, line 2 = one-sentence summary."
+        f"Give one important {topic} news story from today. "
+        "Pick any noteworthy story — never refuse, never say you couldn't find one. "
+        "Reply with exactly two lines, plain text only, no markdown, no bold, no citations, no brackets: "
+        "line 1 = headline, line 2 = one-sentence summary."
     )
     resp = await client.post(
         "https://api.perplexity.ai/chat/completions",
@@ -72,12 +75,22 @@ async def _fetch_topic(client: httpx.AsyncClient, topic: str) -> dict:
     )
     resp.raise_for_status()
     text = resp.json()["choices"][0]["message"]["content"].strip()
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    lines = [_clean(l) for l in text.splitlines() if l.strip()]
     return {
         "topic": topic,
         "headline": lines[0] if lines else f"Top {topic} news",
         "summary": lines[1] if len(lines) > 1 else "",
     }
+
+
+_CITATION_RE = re.compile(r"\s*\[\d+(?:,\s*\d+)*\]")
+
+
+def _clean(line: str) -> str:
+    line = _CITATION_RE.sub("", line)
+    line = re.sub(r"\*+", "", line)
+    line = re.sub(r"^[-•\s]+", "", line)
+    return line.strip()
 
 
 async def fetch_news() -> list[dict]:
@@ -111,9 +124,10 @@ def format_digest(snippets: list[dict]) -> str:
     lines = [f"📰 *Your Daily News Digest — {date_str}*", ""]
     for s in snippets:
         emoji = TOPIC_EMOJI.get(s["topic"], "•")
-        lines.append(f"{emoji} *{s['topic'].capitalize()}*: {s['headline']}")
+        lines.append(f"{emoji} {s['topic'].capitalize()}")
+        lines.append(f"*{s['headline']}*")
         if s["summary"]:
-            lines.append(f"   {s['summary']}")
+            lines.append(s["summary"])
         lines.append("")
     return "\n".join(lines)
 
